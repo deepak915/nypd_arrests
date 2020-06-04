@@ -1,0 +1,113 @@
+---
+title: "Arrests"
+author: "Deepak Dhankani"
+date: "6/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning = FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+arrest <- read_csv('data/NYPD_Arrests_Data__Historic_.csv')
+head(arrest)
+```
+
+```{r}
+skimr::skim(arrest)
+```
+```{r}
+arrest %>%
+  group_by(JURISDICTION_CODE) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n))
+
+```
+
+```{r}
+arrest %>%
+  group_by(LAW_CAT_CD) %>%
+  summarize(n())
+```
+
+```{r}
+arrest %>%
+  janitor::clean_names() %>% 
+  filter( !is.na(pd_desc) && age_group %in% c('<18', '18-24', '25-44', '45-64', '65+') && y_coord_cd< 1000000) 
+```
+
+```{r}
+arrest %>%
+  janitor::clean_names() %>%
+  filter(!is.na(pd_desc), age_group %in% c('<18', '18-24', '25-44', '45-64', '65+'), y_coord_cd< 1000000) %>%
+  mutate(arrest_date = as.Date(arrest_date, format = "%m/%d/%Y"),
+         law_cat_cd = fct_recode(factor(law_cat_cd), Violation = "V", Felony = "F", Misdemeanor = "M"),
+         arrest_boro = fct_recode(factor(arrest_boro), Bronx = "B", `Staten Island` = "S", Manhattan = "M",Brooklyn = "K",Queens = "Q"),
+         perp_sex = fct_recode(factor(perp_sex), Male = "M", Female = "F"),
+         perp_race = fct_recode(factor(perp_race),HISPANIC = "BLACK HISPANIC", HISPANIC = "WHITE HISPANIC", OTHER = "UNKNOWN"),
+         jurisdiction_code = ifelse(jurisdiction_code>3 | is.na(jurisdiction_code), 3, jurisdiction_code),
+         jurisdiction_code = fct_recode(factor(jurisdiction_code), Patrol = "0", Transit = "1", Housing = "2", `Non NYPD` = "3"),
+         age_group = factor(age_group, levels = c('<18', '18-24', '25-44', '45-64', '65+'))) -> df
+
+df %>% head()
+```
+
+```{r}
+df %>%
+  group_by(jurisdiction_code) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n))
+```
+
+```{r}
+df %>%
+  ggplot(aes(x = x_coord_cd, y = y_coord_cd, col = jurisdiction_code)) +
+  geom_point(size = 0.1, alpha = 0.25)
+```
+
+```{r}
+df %>%
+ggplot(aes(x = x_coord_cd, y = y_coord_cd)) +
+  geom_hex(bins = 80) +
+  theme_bw()
+```
+
+```{r}
+df %>% 
+  group_by(pd_cd, pd_desc, perp_race) %>%
+  summarize(n = n()) %>% 
+  arrange(desc(n)) %>%
+  pivot_wider(names_from = perp_race, values_from = n) #%>%
+#  filter(WHITE> BLACK)
+
+```
+
+```{r}
+df %>%
+  filter(pd_cd == 567) %>%
+  group_by(arrest_date, perp_race) %>%
+  summarize(n = n()) %>%
+  ggplot() +
+  geom_point(aes(arrest_date, y = n), size = 0.1, alpha = 0.25) +
+  #geom_smooth() +
+  facet_wrap(~perp_race) 
+```
+
+```{r}
+df %>%
+  group_by(pd_cd, pd_desc, law_cat_cd, perp_race) %>%
+  summarize(n = n()) %>% 
+  arrange(desc(n)) %>%
+  pivot_wider(names_from = perp_race, values_from = n)  #%>%
+#  filter(WHITE> BLACK)
+```
+
+```{r}
+df %>%
+  group_by(law_cat_cd, perp_race) %>%
+  summarize(n =n())
+```
+
